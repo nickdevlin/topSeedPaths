@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+    }
+    .label {
+      font-size: 14px;
+      alignment-baseline: middle;
+    }
+  </style>
+</head>
+<body>
+  <svg width="750" height="400"></svg>
+
+  <script>
+    const raw = [
+      {team: "Michigan St.", region: "East", rating: 28.31},
+      {team: "St. John's", region: "East", rating: 25.91},
+      {team: "Ohio St.", region: "East", rating: 22.24},
+      {team: "Siena", region: "East", rating: -2.1},
+
+      {team: "Iowa St.", region: "Midwest", rating: 32.42},
+      {team: "Alabama", region: "Midwest", rating: 25.72},
+      {team: "Georgia", region: "Midwest", rating: 20.48},
+      {team: "UMBC", region: "Midwest", rating: -1.67},
+
+      {team: "Houston", region: "South", rating: 33.43},
+      {team: "Vanderbilt", region: "South", rating: 27.51},
+      {team: "Iowa", region: "South", rating: 22.44},
+      {team: "Lehigh", region: "South", rating: -10.37},
+
+      {team: "Purdue", region: "West", rating: 31.2},
+      {team: "Arkansas", region: "West", rating: 26.05},
+      {team: "Utah St.", region: "West", rating: 20.76},
+      {team: "LIU", region: "West", rating: -3.95}
+    ];
+
+    // Group by region
+    const grouped = d3.groups(raw, d => d.region).map(([region, values]) => {
+      return {
+        region,
+        values,
+        total: d3.sum(values, d => d.rating)
+      };
+    });
+
+    // Sort by total (descending = toughest at top)
+    grouped.sort((a, b) => d3.descending(a.total, b.total));
+
+    const svg = d3.select("svg");
+    const width = +svg.attr("width");
+    const height = +svg.attr("height");
+
+    const margin = {top: 20, right: 120, bottom: 40, left: 100};
+
+    const x = d3.scaleLinear()
+      .domain(d3.extent(raw, d => d.rating))
+      .nice()
+      .range([margin.left, width - margin.right]);
+
+    const y = d3.scaleBand()
+      .domain(grouped.map(d => d.region))
+      .range([margin.top, height - margin.bottom])
+      .padding(0.5);
+
+    // X axis
+    svg.append("g")
+      .attr("transform", `translate(0,${height - margin.bottom})`)
+      .call(d3.axisBottom(x));
+
+    // Y axis
+    svg.append("g")
+      .attr("transform", `translate(${margin.left},0)`)
+      .call(d3.axisLeft(y));
+
+    // Draw dots
+    svg.append("g")
+      .selectAll("g")
+      .data(grouped)
+      .join("g")
+      .selectAll("circle")
+      .data(d => d.values)
+      .join("circle")
+        .attr("cx", d => x(d.rating))
+        .attr("cy", d => y(d.region) + y.bandwidth() / 2)
+        .attr("r", 5)
+        .attr("opacity", 0.8);
+
+    // Add total labels
+    svg.append("g")
+      .selectAll("text")
+      .data(grouped)
+      .join("text")
+        .attr("class", "label")
+        .attr("x", width - margin.right + 10)
+        .attr("y", d => y(d.region) + y.bandwidth() / 2)
+        .text(d => d.total.toFixed(1));
+
+  </script>
+</body>
+</html>
