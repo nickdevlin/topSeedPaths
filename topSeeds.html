@@ -20,11 +20,6 @@
       fill: #555;
     }
 
-    .axis text {
-      font-size: 12px;
-      fill: #444;
-    }
-
     .grid line {
       stroke: #eee;
     }
@@ -42,6 +37,11 @@
     .note {
       font-size: 12px;
       fill: #666;
+    }
+
+    .separator {
+      stroke: #eee;
+      stroke-width: 1;
     }
 
     .tooltip {
@@ -84,7 +84,6 @@ const raw = [
   {team: "No. 16 LIU", region: "West", rating: -3.95}
 ];
 
-// Region → 1 seed
 const regionNames = {
   "Midwest": "Michigan",
   "West": "Arizona",
@@ -92,7 +91,6 @@ const regionNames = {
   "South": "Florida"
 };
 
-// Team colors
 const teamColors = {
   "Michigan": "#FFCB05",
   "Arizona": "#AB0520",
@@ -106,17 +104,18 @@ const tooltip = d3.select(".tooltip");
 const width = +svg.attr("width");
 const height = +svg.attr("height");
 
-const margin = {top: 90, right: 160, bottom: 50, left: 140};
+const margin = {top: 100, right: 140, bottom: 50, left: 140};
+const valueX = width - margin.right + 5;
 
-// Group + totals
+// Group + averages
 const grouped = d3.groups(raw, d => d.region).map(([region, values]) => ({
   region,
   label: regionNames[region],
   values,
-  total: d3.sum(values, d => d.rating)
+  avg: d3.mean(values, d => d.rating)
 }));
 
-grouped.sort((a,b) => d3.descending(a.total, b.total));
+grouped.sort((a,b) => d3.descending(a.avg, b.avg));
 
 // Scales
 const x = d3.scaleLinear()
@@ -136,12 +135,43 @@ svg.append("text")
   .attr("y", 35)
   .text("Which No. 1 seed has the toughest road to the Final Four?");
 
-// Subtitle
+// --- WRAPPED SUBTITLE ---
+const subtitleText = "If the teams in each region of the NCAA Men's Basketball Tournament with the highest KenPom ratings win out, Michigan would have the toughest road to the Final Four.";
+
+function wrapText(text, width) {
+  text.each(function () {
+    const textSel = d3.select(this);
+    const words = textSel.text().split(/\s+/).reverse();
+    let word, line = [], lineNumber = 0;
+    const lineHeight = 1.2;
+    const y = textSel.attr("y");
+    const x = textSel.attr("x");
+
+    let tspan = textSel.text(null).append("tspan").attr("x", x).attr("y", y);
+
+    while (word = words.pop()) {
+      line.push(word);
+      tspan.text(line.join(" "));
+      if (tspan.node().getComputedTextLength() > width) {
+        line.pop();
+        tspan.text(line.join(" "));
+        line = [word];
+        tspan = textSel.append("tspan")
+          .attr("x", x)
+          .attr("y", y)
+          .attr("dy", ++lineNumber * lineHeight + "em")
+          .text(word);
+      }
+    }
+  });
+}
+
 svg.append("text")
   .attr("class", "subtitle")
   .attr("x", margin.left)
-  .attr("y", 58)
-  .text("If the teams in each region of the NCAA Men's Basketball Tournament with the highest KenPom ratings win out, Michigan would have the toughest road to the Final Four.");
+  .attr("y", 60)
+  .text(subtitleText)
+  .call(wrapText, width - margin.left - margin.right);
 
 // Grid
 svg.append("g")
@@ -165,6 +195,16 @@ svg.append("g")
   .call(d3.axisBottom(x).ticks(6))
   .call(g => g.select(".domain").remove());
 
+// --- SEPARATORS ---
+svg.selectAll(".separator")
+  .data(grouped)
+  .join("line")
+  .attr("class", "separator")
+  .attr("x1", margin.left)
+  .attr("x2", width - margin.right)
+  .attr("y1", d => y(d.label) + y.bandwidth())
+  .attr("y2", d => y(d.label) + y.bandwidth());
+
 // Labels
 svg.selectAll(".region")
   .data(grouped)
@@ -176,11 +216,10 @@ svg.selectAll(".region")
   .attr("alignment-baseline", "middle")
   .text(d => d.label);
 
-// Draw dots
+// Dots
 svg.selectAll("g.dots")
   .data(grouped)
   .join("g")
-  .attr("class", "dots")
   .selectAll("circle")
   .data(d => d.values.map(v => ({...v, label: d.label})))
   .join("circle")
@@ -190,61 +229,49 @@ svg.selectAll("g.dots")
     .attr("fill", d => teamColors[d.label])
     .attr("opacity", 0.9)
     .style("cursor", "pointer")
-
-    // --- INTERACTION ---
     .on("mouseover", function(event, d) {
-
-      // Fade others
       d3.selectAll("circle").attr("opacity", 0.2);
-
-      // Highlight this one
-      d3.select(this)
-        .attr("opacity", 1)
-        .attr("r", 7);
+      d3.select(this).attr("opacity", 1).attr("r", 7);
 
       tooltip
         .style("opacity", 1)
         .html(`${d.team}<br>${d.rating.toFixed(1)}`);
     })
-
     .on("mousemove", (event) => {
       tooltip
         .style("left", (event.pageX + 10) + "px")
         .style("top", (event.pageY - 20) + "px");
     })
-
     .on("mouseout", function() {
-      d3.selectAll("circle")
-        .attr("opacity", 0.9)
-        .attr("r", 5.5);
-
+      d3.selectAll("circle").attr("opacity", 0.9).attr("r", 5.5);
       tooltip.style("opacity", 0);
     });
 
-// Totals
+// Averages
 svg.selectAll(".totals")
   .data(grouped)
   .join("text")
     .attr("class", "total-label")
-    .attr("x", width - margin.right + 10)
+    .attr("x", valueX)
     .attr("y", d => y(d.label) + y.bandwidth()/2)
     .attr("alignment-baseline", "middle")
-    .text(d => d.total.toFixed(1));
+    .attr("text-anchor", "start")
+    .text(d => d.avg.toFixed(1));
 
 // Header
 svg.append("text")
-  .attr("x", width - margin.right + 10)
-  .attr("y", margin.top - 20)
+  .attr("x", valueX)
+  .attr("y", margin.top - 25)
   .attr("font-size", 12)
   .attr("fill", "#555")
-  .text("Total");
+  .text("Avg Opp. Rating");
 
 // Footer
 svg.append("text")
   .attr("class", "note")
   .attr("x", margin.left)
   .attr("y", height - 10)
-  .text("Source: KenPom.com");
+  .text("Source: KenPom");
 
 </script>
 </body>
