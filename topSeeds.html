@@ -5,16 +5,50 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      background: #ffffff;
     }
-    .label {
+
+    .title {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .subtitle {
       font-size: 14px;
-      alignment-baseline: middle;
+      fill: #555;
+    }
+
+    .axis path,
+    .axis line {
+      stroke: #ccc;
+    }
+
+    .axis text {
+      font-size: 12px;
+      fill: #444;
+    }
+
+    .region-label {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .total-label {
+      font-size: 14px;
+      font-weight: 600;
+      fill: #111;
+    }
+
+    .note {
+      font-size: 12px;
+      fill: #666;
     }
   </style>
 </head>
 <body>
-  <svg width="750" height="400"></svg>
+  <svg width="800" height="450"></svg>
 
   <script>
     const raw = [
@@ -39,23 +73,21 @@
       {team: "LIU", region: "West", rating: -3.95}
     ];
 
-    // Group by region
-    const grouped = d3.groups(raw, d => d.region).map(([region, values]) => {
-      return {
-        region,
-        values,
-        total: d3.sum(values, d => d.rating)
-      };
-    });
-
-    // Sort by total (descending = toughest at top)
-    grouped.sort((a, b) => d3.descending(a.total, b.total));
-
     const svg = d3.select("svg");
     const width = +svg.attr("width");
     const height = +svg.attr("height");
 
-    const margin = {top: 20, right: 120, bottom: 40, left: 100};
+    const margin = {top: 80, right: 140, bottom: 40, left: 120};
+
+    // Group + totals
+    const grouped = d3.groups(raw, d => d.region).map(([region, values]) => ({
+      region,
+      values,
+      total: d3.sum(values, d => d.rating)
+    }));
+
+    // Sort
+    grouped.sort((a, b) => d3.descending(a.total, b.total));
 
     const x = d3.scaleLinear()
       .domain(d3.extent(raw, d => d.rating))
@@ -65,17 +97,52 @@
     const y = d3.scaleBand()
       .domain(grouped.map(d => d.region))
       .range([margin.top, height - margin.bottom])
-      .padding(0.5);
+      .padding(0.6);
+
+    // Title
+    svg.append("text")
+      .attr("class", "title")
+      .attr("x", margin.left)
+      .attr("y", 30)
+      .text("Which No. 1 seed has the toughest road?");
+
+    // Subtitle
+    svg.append("text")
+      .attr("class", "subtitle")
+      .attr("x", margin.left)
+      .attr("y", 50)
+      .text("Opponent strength by region (KenPom rating)");
+
+    // Zero line
+    svg.append("line")
+      .attr("x1", x(0))
+      .attr("x2", x(0))
+      .attr("y1", margin.top)
+      .attr("y2", height - margin.bottom)
+      .attr("stroke", "#999")
+      .attr("stroke-dasharray", "4,2");
 
     // X axis
     svg.append("g")
+      .attr("class", "axis")
       .attr("transform", `translate(0,${height - margin.bottom})`)
-      .call(d3.axisBottom(x));
+      .call(d3.axisBottom(x).ticks(6))
+      .call(g => g.select(".domain").remove());
 
-    // Y axis
+    // Y labels (custom for styling)
     svg.append("g")
-      .attr("transform", `translate(${margin.left},0)`)
-      .call(d3.axisLeft(y));
+      .selectAll("text")
+      .data(grouped)
+      .join("text")
+        .attr("class", "region-label")
+        .attr("x", margin.left - 10)
+        .attr("y", d => y(d.region) + y.bandwidth() / 2)
+        .attr("text-anchor", "end")
+        .attr("alignment-baseline", "middle")
+        .text(d => d.region);
+
+    // Color: highlight weakest team
+    const color = d => d.rating < 0 ? "#d62728" : "#1f77b4";
 
     // Draw dots
     svg.append("g")
@@ -88,17 +155,34 @@
         .attr("cx", d => x(d.rating))
         .attr("cy", d => y(d.region) + y.bandwidth() / 2)
         .attr("r", 5)
-        .attr("opacity", 0.8);
+        .attr("fill", d => color(d))
+        .attr("opacity", 0.9);
 
-    // Add total labels
+    // Totals
     svg.append("g")
       .selectAll("text")
       .data(grouped)
       .join("text")
-        .attr("class", "label")
+        .attr("class", "total-label")
         .attr("x", width - margin.right + 10)
         .attr("y", d => y(d.region) + y.bandwidth() / 2)
+        .attr("alignment-baseline", "middle")
         .text(d => d.total.toFixed(1));
+
+    // Column header
+    svg.append("text")
+      .attr("x", width - margin.right + 10)
+      .attr("y", margin.top - 15)
+      .attr("font-size", 12)
+      .attr("fill", "#555")
+      .text("Total");
+
+    // Footer note
+    svg.append("text")
+      .attr("class", "note")
+      .attr("x", margin.left)
+      .attr("y", height - 5)
+      .text("Source: KenPom | Negative values indicate weaker teams");
 
   </script>
 </body>
