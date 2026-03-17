@@ -84,12 +84,20 @@ const raw = [
   {team: "No. 16 LIU", region: "West", rating: -3.95}
 ];
 
-// Map regions → 1 seeds
+// Region → 1 seed
 const regionNames = {
   "Midwest": "Michigan",
   "West": "Arizona",
   "East": "Duke",
   "South": "Florida"
+};
+
+// Team colors
+const teamColors = {
+  "Michigan": "#FFCB05",
+  "Arizona": "#AB0520",
+  "Florida": "#FA4616",
+  "Duke": "#00539B"
 };
 
 const svg = d3.select("svg");
@@ -108,7 +116,6 @@ const grouped = d3.groups(raw, d => d.region).map(([region, values]) => ({
   total: d3.sum(values, d => d.rating)
 }));
 
-// Sort
 grouped.sort((a,b) => d3.descending(a.total, b.total));
 
 // Scales
@@ -152,13 +159,13 @@ svg.append("line")
   .attr("stroke", "#999")
   .attr("stroke-dasharray", "4,2");
 
-// X axis
+// Axis
 svg.append("g")
   .attr("transform", `translate(0,${height - margin.bottom})`)
   .call(d3.axisBottom(x).ticks(6))
   .call(g => g.select(".domain").remove());
 
-// Labels (1 seeds)
+// Labels
 svg.selectAll(".region")
   .data(grouped)
   .join("text")
@@ -169,35 +176,48 @@ svg.selectAll(".region")
   .attr("alignment-baseline", "middle")
   .text(d => d.label);
 
-// Color
-const color = d => d.rating < 0 ? "#d62728" : "#1f77b4";
-
-// Dots + interaction
-svg.selectAll(".dots")
+// Draw dots
+svg.selectAll("g.dots")
   .data(grouped)
   .join("g")
+  .attr("class", "dots")
   .selectAll("circle")
   .data(d => d.values.map(v => ({...v, label: d.label})))
   .join("circle")
     .attr("cx", d => x(d.rating))
     .attr("cy", d => y(d.label) + y.bandwidth()/2)
     .attr("r", 5.5)
-    .attr("fill", d => color(d))
+    .attr("fill", d => teamColors[d.label])
+    .attr("opacity", 0.9)
     .style("cursor", "pointer")
+
+    // --- INTERACTION ---
     .on("mouseover", function(event, d) {
-      d3.select(this).attr("r", 7);
+
+      // Fade others
+      d3.selectAll("circle").attr("opacity", 0.2);
+
+      // Highlight this one
+      d3.select(this)
+        .attr("opacity", 1)
+        .attr("r", 7);
 
       tooltip
         .style("opacity", 1)
         .html(`${d.team}<br>${d.rating.toFixed(1)}`);
     })
+
     .on("mousemove", (event) => {
       tooltip
         .style("left", (event.pageX + 10) + "px")
         .style("top", (event.pageY - 20) + "px");
     })
+
     .on("mouseout", function() {
-      d3.select(this).attr("r", 5.5);
+      d3.selectAll("circle")
+        .attr("opacity", 0.9)
+        .attr("r", 5.5);
+
       tooltip.style("opacity", 0);
     });
 
