@@ -104,7 +104,7 @@ const tooltip = d3.select(".tooltip");
 const width = +svg.attr("width");
 const height = +svg.attr("height");
 
-const margin = {top: 100, right: 140, bottom: 50, left: 140};
+const margin = {top: 120, right: 140, bottom: 50, left: 140};
 const valueX = width - margin.right + 5;
 
 // Group + averages
@@ -261,7 +261,7 @@ svg.selectAll(".totals")
 // Header
 svg.append("text")
   .attr("x", valueX)
-  .attr("y", margin.top - 25)
+  .attr("y", margin.top - 10)
   .attr("font-size", 12)
   .attr("fill", "#555")
   .text("Avg Opp. Rating");
